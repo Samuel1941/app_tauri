@@ -1,5 +1,6 @@
 -- src-tauri/lua/ui.lua
 local M = {}
+local LOGO_BASE64 = MAIN_LOGO_BASE64 or ""
 
 local UI_SPEC = {
   initial_screen = "login",
@@ -15,6 +16,20 @@ local UI_SPEC = {
         spacing = "medium",
       },
       components = {
+        -- LOGO desde meta.json (via MAIN_LOGO_BASE64)
+        {
+          type = "image",
+          id = "main_logo",
+          file = LOGO_BASE64,
+          size = "medium",
+          align = "center",
+        },
+        {
+          type = "spacer",
+          id = "sp_logo",
+          height = 16,
+        },
+
         {
           type = "text",
           id = "title_login",

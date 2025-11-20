@@ -310,7 +310,6 @@ button {
 ================================================
 FILE: src/App.tsx
 ================================================
-// src/App.tsx
 import { useMemo, useState, CSSProperties } from "react";
 import "./App.css";
 import rawMeta from "./meta.json";
@@ -329,22 +328,16 @@ import {
   ConditionSpec,
 } from "./types/types";
 
-// ===== Estado interno =====
-
-type ValuesMap = Record<string, string>; // clave = data_model ("user.email")
+type ValuesMap = Record<string, string>;
 type ErrorsMap = Record<string, string>;
 
-// Cast del JSON al tipo fuerte
 const meta = rawMeta as MetalanguageRoot;
 const screens: ScreenSpec[] = meta.screens;
 const transitions: Transition[] = meta.transitions;
 const rules: RuleSpec[] = meta.rules;
 
-// pantalla inicial: viene de operational_rules.access.login_screen
 const initialScreenId: string =
   meta.operational_rules?.access?.login_screen ?? screens[0]?.id ?? "";
-
-// ===== Helpers =====
 
 function findScreen(screenId: string): ScreenSpec {
   const screen = screens.find((s) => s.id === screenId);
@@ -358,18 +351,15 @@ function validateField(
   component: TextFieldComponent,
   value: string
 ): string | null {
-  // requerido
   if (component.required && (!value || value.trim() === "")) {
     return "Este campo es requerido";
   }
 
-  // min_length (si llega desde validations)
   const minLen = component.validations?.min_length;
   if (typeof minLen === "number" && value && value.length < minLen) {
     return `Debe tener al menos ${minLen} caracteres`;
   }
 
-  // formato email
   if (component.data_type === "email" && value) {
     const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(value)) {
@@ -377,7 +367,6 @@ function validateField(
     }
   }
 
-  // password mÃ­nimo 8 por defecto si no se define otra cosa
   if (component.data_type === "password" && value && value.length < 8) {
     return "La contraseÃ±a debe tener al menos 8 caracteres";
   }
@@ -394,7 +383,6 @@ function evaluateCondition(cond: ConditionSpec, values: ValuesMap): boolean {
     case "is_empty":
       return current.trim().length === 0;
     default:
-      // comparadores no soportados todavÃ­a -> dejamos pasar
       console.warn("Comparator no soportado:", cond.comparator);
       return true;
   }
@@ -449,16 +437,13 @@ function findRulesForEvent(screenId: string, eventName: string): RuleSpec[] {
   });
 }
 
-// NUEVO: funciÃ³n para sustituir {{ user.email }} por el valor en `values`
 function interpolateText(template: string, values: ValuesMap): string {
   return template.replace(/{{\s*([^}]+)\s*}}/g, (_, expr) => {
-    const key = (expr as string).trim(); // p.e. "user.email"
+    const key = (expr as string).trim();
     const val = values[key];
     return val !== undefined && val !== null ? String(val) : "";
   });
 }
-
-// ===== React App =====
 
 function App() {
   const [currentScreenId, setCurrentScreenId] =
@@ -479,7 +464,6 @@ function App() {
       [modelKey]: value,
     }));
 
-    // ValidaciÃ³n en caliente
     const errorMsg = validateField(component, value);
     setErrors((prev) => {
       const next = { ...prev };
@@ -511,7 +495,6 @@ function App() {
       );
       if (tr) {
         setCurrentScreenId(tr.to);
-        // si clear_stack estuviera en true podrÃ­as limpiar aquÃ­ un stack de navegaciÃ³n
         workingErrors = {};
       } else {
         console.warn("No se encontrÃ³ transiciÃ³n para el evento:", flowEvent);
@@ -519,7 +502,6 @@ function App() {
     };
 
     for (const rule of relatedRules) {
-      // condiciones "when"
       if (rule.when && rule.when.length > 0) {
         const allOk = rule.when.every((cond) =>
           evaluateCondition(cond, workingValues)
@@ -544,7 +526,6 @@ function App() {
             break;
           }
         } else if (step.type === "start_operation") {
-          // Por ahora simulamos Ã©xito inmediato y navegamos por success_event
           if (step.success_event) {
             navigateByEvent(step.success_event);
           }
@@ -1887,8 +1868,6 @@ return M
 ================================================
 FILE: src-tauri/lua/utils/validations.lua
 ================================================
--- src-tauri/lua/utils/validation.lua
-
 local M = {}
 
 local function is_empty(value)

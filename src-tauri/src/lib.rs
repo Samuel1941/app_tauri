@@ -1,5 +1,7 @@
+// src-tauri/src/lib.rs
 use mlua::{Lua, Table as LuaTable, Value as LuaValue};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
+use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -64,6 +66,7 @@ fn lua_value_to_json(value: LuaValue) -> Result<JsonValue, mlua::Error> {
         _ => JsonValue::Null,
     })
 }
+
 struct LuaAppState {
     lua: Mutex<Lua>,
 }
@@ -72,6 +75,7 @@ impl LuaAppState {
     fn new() -> Self {
         let lua = Lua::new();
 
+        // Configurar package.path para src-tauri/lua y src-tauri/lua/utils
         let lua_base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lua");
         let lua_base_dir_str = lua_base_dir.to_string_lossy().replace("\\", "/");
 
@@ -87,6 +91,50 @@ impl LuaAppState {
         lua.load(&code)
             .exec()
             .expect("No se pudo configurar package.path de Lua");
+
+        // Leer meta.json y exponer MAIN_LOGO_BASE64 en Lua
+        let meta_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("meta.json");
+
+        if let Ok(meta_str) = fs::read_to_string(&meta_path) {
+            if let Ok(meta_json) = serde_json::from_str::<JsonValue>(&meta_str) {
+                let mut logo_b64 = String::new();
+
+                if let Some(screens) = meta_json.get("screens").and_then(|v| v.as_array()) {
+                    'outer: for screen in screens {
+                        if screen.get("id").and_then(|v| v.as_str()) == Some("login") {
+                            if let Some(components) =
+                                screen.get("components").and_then(|v| v.as_array())
+                            {
+                                for comp in components {
+                                    let is_main_logo = comp.get("id").and_then(|v| v.as_str())
+                                        == Some("main_logo")
+                                        && comp.get("type").and_then(|v| v.as_str())
+                                            == Some("image");
+
+                                    if is_main_logo {
+                                        if let Some(file) =
+                                            comp.get("file").and_then(|v| v.as_str())
+                                        {
+                                            logo_b64 = file.to_string();
+                                            break 'outer;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !logo_b64.is_empty() {
+                    // Usamos un string largo de Lua [[...]] para no preocuparnos
+                    // de caracteres especiales del base64.
+                    let set_code = format!("MAIN_LOGO_BASE64 = [[{}]]", logo_b64);
+                    if let Err(e) = lua.load(&set_code).exec() {
+                        eprintln!("Error setting MAIN_LOGO_BASE64 in Lua via code: {e}");
+                    }
+                }
+            }
+        }
 
         LuaAppState {
             lua: Mutex::new(lua),
@@ -109,7 +157,7 @@ fn get_view(lua_state: tauri::State<LuaAppState>) -> Result<JsonValue, String> {
     let init_state_fn: mlua::Function = ui_rules.get("init_state").map_err(|e| e.to_string())?;
 
     init_state_fn
-        .call::<()>(()) // 👈 aquí R = ()
+        .call::<()>(()) // inicializa el estado global en Lua
         .map_err(|e| e.to_string())?;
 
     let build_view_fn: mlua::Function = ui_rules
@@ -140,7 +188,7 @@ fn input_change(
     let on_input_change_fn: mlua::Function =
         ui_rules.get("on_input_change").map_err(|e| e.to_string())?;
 
-    let _state: LuaValue = on_input_change_fn
+    let _ret: (LuaValue, LuaValue) = on_input_change_fn
         .call((screen_id.as_str(), field_id.as_str(), value.as_str()))
         .map_err(|e| e.to_string())?;
 

@@ -27,6 +27,21 @@ const rules: RuleSpec[] = meta.rules;
 const initialScreenId: string =
   meta.operational_rules?.access?.login_screen ?? screens[0]?.id ?? "";
 
+// NUEVO: helper para soportar base64 y data URLs
+function getImageSrc(file?: string | null): string {
+  if (!file) return "";
+  const trimmed = file.trim();
+  if (!trimmed) return "";
+
+  // Si ya viene como data URL (por ejemplo desde el metalenguaje o Lua)
+  if (trimmed.startsWith("data:image")) {
+    return trimmed;
+  }
+
+  // Si solo viene el base64 "crudo", asumimos PNG
+  return `data:image/png;base64,${trimmed}`;
+}
+
 function findScreen(screenId: string): ScreenSpec {
   const screen = screens.find((s) => s.id === screenId);
   if (!screen) {
@@ -242,7 +257,8 @@ function App() {
             }}
           >
             <img
-              src={img.file ?? ""}
+              // ⬇️ AQUÍ ES DONDE AHORA LEEMOS BASE64 CORRECTAMENTE
+              src={getImageSrc(img.file)}
               alt={img.id}
               style={{
                 maxWidth: img.size === "md" ? "150px" : "100%",
