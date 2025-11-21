@@ -134,16 +134,10 @@ function interpolateText(template: string, values: ValuesMap): string {
   });
 }
 
-function getImageSrc(file?: string | null): string {
-  if (!file) return "";
-  const trimmed = file.trim();
-  if (!trimmed) return "";
-
-  if (trimmed.startsWith("data:image")) {
-    return trimmed;
-  }
-
-  return `data:image/png;base64,${trimmed}`;
+function getImageSrc(img: ImageComponent): string {
+  if (!img.file) return "";
+  if (img.file.startsWith("data:")) return img.file;
+  return `data:image/png;base64,${img.file}`;
 }
 
 function App() {
@@ -186,7 +180,6 @@ function App() {
       return;
     }
 
-    // 🔧 ARREGLADO: spread correcto
     let workingErrors: ErrorsMap = { ...errors };
     let workingValues: ValuesMap = { ...values };
     let shouldStop = false;
@@ -197,7 +190,6 @@ function App() {
       );
       if (tr) {
         setCurrentScreenId(tr.to);
-        // al navegar limpiamos errores (similar a lo que haces en Lua)
         workingErrors = {};
       } else {
         console.warn("No se encontró transición para el evento:", flowEvent);
@@ -205,7 +197,6 @@ function App() {
     };
 
     for (const rule of relatedRules) {
-      // condiciones "when"
       if (rule.when && rule.when.length > 0) {
         const allOk = rule.when.every((cond) =>
           evaluateCondition(cond, workingValues)
@@ -230,7 +221,6 @@ function App() {
             break;
           }
         } else if (step.type === "start_operation") {
-          // Por ahora simulamos éxito inmediato y navegamos por success_event
           if (step.success_event) {
             navigateByEvent(step.success_event);
           }
@@ -259,7 +249,7 @@ function App() {
             }}
           >
             <img
-              src={getImageSrc(img.file)}
+              src={getImageSrc(img)}
               alt={img.id}
               style={{
                 maxWidth: img.size === "md" ? "150px" : "100%",
@@ -298,6 +288,7 @@ function App() {
                 padding: "0.5rem 0.75rem",
                 borderRadius: 8,
                 border: "1px solid #ccc",
+                boxSizing: "border-box",
               }}
             />
             {errors[modelKey] && (
@@ -413,10 +404,16 @@ function App() {
             flexDirection:
               currentScreen.layout.type === "vertical" ? "column" : "row",
             gap: "1rem",
+            width: "100%",
+            maxWidth: 320,
+            margin: "0 auto",
+            alignItems: "stretch",
           }}
         >
           {currentScreen.components.map((c) => (
-            <div key={c.id}>{renderComponent(c)}</div>
+            <div key={c.id} style={{ width: "100%" }}>
+              {renderComponent(c)}
+            </div>
           ))}
         </div>
       </div>
