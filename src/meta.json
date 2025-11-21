@@ -62,7 +62,7 @@
   "screens": [
     {
       "id": "login",
-      "title": "Sign in",
+      "title": "Sign in de lua",
       "description": "Login screen",
       "targets": ["topwase_t6", "mobile_app"],
       "access_control": {
@@ -124,7 +124,7 @@
     },
     {
       "id": "home",
-      "title": "Dashboard",
+      "title": "Dashboard de meta",
       "description": "Home screen",
       "targets": ["topwase_t6"],
       "access_control": {

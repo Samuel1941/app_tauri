@@ -1,7 +1,5 @@
-// src-tauri/src/lib.rs
 use mlua::{Lua, Table as LuaTable, Value as LuaValue};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
-use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -11,7 +9,7 @@ fn lua_value_to_json(value: LuaValue) -> Result<JsonValue, mlua::Error> {
         LuaValue::Boolean(b) => JsonValue::Bool(b),
         LuaValue::Integer(i) => JsonValue::Number(i.into()),
         LuaValue::Number(n) => {
-            let num = Number::from_f64(n).unwrap_or_else(|| Number::from(0));
+            let num = Number::from_f64(n).unwrap_or_else(|| Number::from_f64(0.0).unwrap());
             JsonValue::Number(num)
         }
         LuaValue::String(s) => JsonValue::String(s.to_str()?.to_string()),
@@ -21,25 +19,24 @@ fn lua_value_to_json(value: LuaValue) -> Result<JsonValue, mlua::Error> {
             let mut arr_elems: Vec<(i64, LuaValue)> = Vec::new();
             let mut obj_map: JsonMap<String, JsonValue> = JsonMap::new();
 
-            for pair in t.clone().pairs::<LuaValue, LuaValue>() {
+            for pair in t.pairs::<LuaValue, LuaValue>() {
                 let (k, v) = pair?;
                 match k {
                     LuaValue::Integer(i) => {
-                        if i <= 0 {
-                            is_array = false;
-                        } else {
-                            if i > max_index {
-                                max_index = i;
-                            }
-                            arr_elems.push((i, v));
+                        if i > max_index {
+                            max_index = i;
                         }
+                        arr_elems.push((i, v));
                     }
-                    LuaValue::String(ks) => {
+                    LuaValue::String(s) => {
                         is_array = false;
-                        obj_map.insert(ks.to_str()?.to_string(), lua_value_to_json(v)?);
+                        let key_str = s.to_str()?.to_string();
+                        obj_map.insert(key_str, lua_value_to_json(v)?);
                     }
-                    _ => {
+                    other_key => {
                         is_array = false;
+                        let key_str = format!("{:?}", other_key);
+                        obj_map.insert(key_str, lua_value_to_json(v)?);
                     }
                 }
             }
@@ -67,6 +64,38 @@ fn lua_value_to_json(value: LuaValue) -> Result<JsonValue, mlua::Error> {
     })
 }
 
+fn json_to_lua(lua: &Lua, value: &JsonValue) -> Result<LuaValue, mlua::Error> {
+    Ok(match value {
+        JsonValue::Null => LuaValue::Nil,
+        JsonValue::Bool(b) => LuaValue::Boolean(*b),
+        JsonValue::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                LuaValue::Integer(i)
+            } else {
+                let f = n.as_f64().unwrap_or(0.0);
+                LuaValue::Number(f)
+            }
+        }
+        JsonValue::String(s) => LuaValue::String(lua.create_string(s)?),
+        JsonValue::Array(arr) => {
+            let table = lua.create_table()?;
+            for (idx, item) in arr.iter().enumerate() {
+                let v = json_to_lua(lua, item)?;
+                table.set((idx + 1) as i64, v)?;
+            }
+            LuaValue::Table(table)
+        }
+        JsonValue::Object(map) => {
+            let table = lua.create_table()?;
+            for (k, v) in map.iter() {
+                let v = json_to_lua(lua, v)?;
+                table.set(k.as_str(), v)?;
+            }
+            LuaValue::Table(table)
+        }
+    })
+}
+
 struct LuaAppState {
     lua: Mutex<Lua>,
 }
@@ -75,7 +104,6 @@ impl LuaAppState {
     fn new() -> Self {
         let lua = Lua::new();
 
-        // Configurar package.path para src-tauri/lua y src-tauri/lua/utils
         let lua_base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("lua");
         let lua_base_dir_str = lua_base_dir.to_string_lossy().replace("\\", "/");
 
@@ -92,47 +120,36 @@ impl LuaAppState {
             .exec()
             .expect("No se pudo configurar package.path de Lua");
 
-        // Leer meta.json y exponer MAIN_LOGO_BASE64 en Lua
-        let meta_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("meta.json");
+        let meta_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap_or_else(|| Path::new(".."))
+            .join("src")
+            .join("meta.json");
 
-        if let Ok(meta_str) = fs::read_to_string(&meta_path) {
-            if let Ok(meta_json) = serde_json::from_str::<JsonValue>(&meta_str) {
-                let mut logo_b64 = String::new();
-
-                if let Some(screens) = meta_json.get("screens").and_then(|v| v.as_array()) {
-                    'outer: for screen in screens {
-                        if screen.get("id").and_then(|v| v.as_str()) == Some("login") {
-                            if let Some(components) =
-                                screen.get("components").and_then(|v| v.as_array())
-                            {
-                                for comp in components {
-                                    let is_main_logo = comp.get("id").and_then(|v| v.as_str())
-                                        == Some("main_logo")
-                                        && comp.get("type").and_then(|v| v.as_str())
-                                            == Some("image");
-
-                                    if is_main_logo {
-                                        if let Some(file) =
-                                            comp.get("file").and_then(|v| v.as_str())
-                                        {
-                                            logo_b64 = file.to_string();
-                                            break 'outer;
-                                        }
-                                    }
-                                }
-                            }
+        match std::fs::read_to_string(&meta_path) {
+            Ok(meta_str) => match serde_json::from_str::<JsonValue>(&meta_str) {
+                Ok(meta_json) => match json_to_lua(&lua, &meta_json) {
+                    Ok(lua_meta) => {
+                        if let Err(e) = lua.globals().set("META", lua_meta) {
+                            eprintln!("Error exponiendo META a Lua: {e}");
                         }
                     }
-                }
-
-                if !logo_b64.is_empty() {
-                    // Usamos un string largo de Lua [[...]] para no preocuparnos
-                    // de caracteres especiales del base64.
-                    let set_code = format!("MAIN_LOGO_BASE64 = [[{}]]", logo_b64);
-                    if let Err(e) = lua.load(&set_code).exec() {
-                        eprintln!("Error setting MAIN_LOGO_BASE64 in Lua via code: {e}");
+                    Err(e) => {
+                        eprintln!("Error convirtiendo meta.json a Lua: {e}");
                     }
+                },
+                Err(e) => {
+                    eprintln!(
+                        "Error parseando meta.json ({}): {e}",
+                        meta_path.to_string_lossy()
+                    );
                 }
+            },
+            Err(e) => {
+                eprintln!(
+                    "No se pudo leer meta.json en {}: {e}",
+                    meta_path.to_string_lossy()
+                );
             }
         }
 
@@ -154,15 +171,10 @@ fn get_view(lua_state: tauri::State<LuaAppState>) -> Result<JsonValue, String> {
         .eval()
         .map_err(|e| e.to_string())?;
 
-    let init_state_fn: mlua::Function = ui_rules.get("init_state").map_err(|e| e.to_string())?;
-
-    init_state_fn
-        .call::<()>(()) // inicializa el estado global en Lua
-        .map_err(|e| e.to_string())?;
-
     let build_view_fn: mlua::Function = ui_rules
         .get("build_current_view")
         .map_err(|e| e.to_string())?;
+
     let view: LuaValue = build_view_fn.call(()).map_err(|e| e.to_string())?;
 
     lua_value_to_json(view).map_err(|e| e.to_string())
@@ -188,7 +200,7 @@ fn input_change(
     let on_input_change_fn: mlua::Function =
         ui_rules.get("on_input_change").map_err(|e| e.to_string())?;
 
-    let _ret: (LuaValue, LuaValue) = on_input_change_fn
+    let _state: LuaValue = on_input_change_fn
         .call((screen_id.as_str(), field_id.as_str(), value.as_str()))
         .map_err(|e| e.to_string())?;
 
@@ -219,7 +231,7 @@ fn button_click(
     let on_button_click_fn: mlua::Function =
         ui_rules.get("on_button_click").map_err(|e| e.to_string())?;
 
-    let _ret: (LuaValue, LuaValue) = on_button_click_fn
+    let _state: LuaValue = on_button_click_fn
         .call((screen_id.as_str(), button_id.as_str()))
         .map_err(|e| e.to_string())?;
 
@@ -233,10 +245,9 @@ fn button_click(
 
 #[tauri::command]
 fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+    format!("Hello, {}!", name)
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let lua_state = LuaAppState::new();
 

@@ -50,9 +50,6 @@ function M.validate_field(comp, value)
   return true, nil
 end
 
--- components_index: [id] = spec original
--- values:           [id] = value
--- field_ids:        array de ids
 function M.validate_fields(components_index, values, field_ids, component_factory)
   local errors = {}
   local all_ok = true

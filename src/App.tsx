@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useMemo, useState, CSSProperties } from "react";
 import "./App.css";
 import rawMeta from "./meta.json";
@@ -26,21 +27,6 @@ const rules: RuleSpec[] = meta.rules;
 
 const initialScreenId: string =
   meta.operational_rules?.access?.login_screen ?? screens[0]?.id ?? "";
-
-// NUEVO: helper para soportar base64 y data URLs
-function getImageSrc(file?: string | null): string {
-  if (!file) return "";
-  const trimmed = file.trim();
-  if (!trimmed) return "";
-
-  // Si ya viene como data URL (por ejemplo desde el metalenguaje o Lua)
-  if (trimmed.startsWith("data:image")) {
-    return trimmed;
-  }
-
-  // Si solo viene el base64 "crudo", asumimos PNG
-  return `data:image/png;base64,${trimmed}`;
-}
 
 function findScreen(screenId: string): ScreenSpec {
   const screen = screens.find((s) => s.id === screenId);
@@ -148,6 +134,18 @@ function interpolateText(template: string, values: ValuesMap): string {
   });
 }
 
+function getImageSrc(file?: string | null): string {
+  if (!file) return "";
+  const trimmed = file.trim();
+  if (!trimmed) return "";
+
+  if (trimmed.startsWith("data:image")) {
+    return trimmed;
+  }
+
+  return `data:image/png;base64,${trimmed}`;
+}
+
 function App() {
   const [currentScreenId, setCurrentScreenId] =
     useState<string>(initialScreenId);
@@ -169,7 +167,7 @@ function App() {
 
     const errorMsg = validateField(component, value);
     setErrors((prev) => {
-      const next = { ...prev };
+      const next: ErrorsMap = { ...prev };
       if (errorMsg) {
         next[modelKey] = errorMsg;
       } else {
@@ -188,6 +186,7 @@ function App() {
       return;
     }
 
+    // 🔧 ARREGLADO: spread correcto
     let workingErrors: ErrorsMap = { ...errors };
     let workingValues: ValuesMap = { ...values };
     let shouldStop = false;
@@ -198,6 +197,7 @@ function App() {
       );
       if (tr) {
         setCurrentScreenId(tr.to);
+        // al navegar limpiamos errores (similar a lo que haces en Lua)
         workingErrors = {};
       } else {
         console.warn("No se encontró transición para el evento:", flowEvent);
@@ -205,6 +205,7 @@ function App() {
     };
 
     for (const rule of relatedRules) {
+      // condiciones "when"
       if (rule.when && rule.when.length > 0) {
         const allOk = rule.when.every((cond) =>
           evaluateCondition(cond, workingValues)
@@ -229,6 +230,7 @@ function App() {
             break;
           }
         } else if (step.type === "start_operation") {
+          // Por ahora simulamos éxito inmediato y navegamos por success_event
           if (step.success_event) {
             navigateByEvent(step.success_event);
           }
@@ -257,7 +259,6 @@ function App() {
             }}
           >
             <img
-              // ⬇️ AQUÍ ES DONDE AHORA LEEMOS BASE64 CORRECTAMENTE
               src={getImageSrc(img.file)}
               alt={img.id}
               style={{

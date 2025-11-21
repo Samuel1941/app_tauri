@@ -1,8 +1,5 @@
--- src-tauri/lua/utils/navigation.lua
-
 local M = {}
 
--- Equivalente a "transitions" de tu meta.json, pero en Lua
 local TRANSITIONS = {
   {
     event = "login_exitoso",
@@ -36,7 +33,6 @@ local TRANSITIONS = {
   },
 }
 
--- Dado un screen actual + evento de flujo ("flow_event"), regresa next_screen y mode
 function M.resolve(current_screen, event_name)
   for _, t in ipairs(TRANSITIONS) do
     if t.from == current_screen and t.event == event_name then
@@ -44,7 +40,6 @@ function M.resolve(current_screen, event_name)
     end
   end
 
-  -- Si no hay transición, se queda en la misma pantalla
   return current_screen, nil
 end
 

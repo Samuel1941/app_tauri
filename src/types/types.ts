@@ -1,6 +1,3 @@
-// src/types/types.ts
-// Tipos TypeScript para el nuevo metalenguaje (ejemplo.json)
-
 export type LayoutType = "vertical" | "horizontal";
 
 export interface LayoutSpec {
@@ -8,7 +5,6 @@ export interface LayoutSpec {
     padding?: "sm" | "md" | "lg" | string;
     horizontal_alignment?: "start" | "center" | "end" | "stretch" | string;
     spacing?: "small" | "medium" | "large" | string;
-    // compat con la versión anterior
     align?: "start" | "center" | "end";
 }
 
@@ -36,7 +32,7 @@ export interface TextFieldComponent extends BaseComponent {
     type: "text_field";
     label?: string;
     placeholder?: string;
-    data_model?: string; // p.e. "user.email"
+    data_model?: string;
     data_type?: "email" | "password" | "string" | string;
     required?: boolean;
     validations?: {
@@ -87,14 +83,14 @@ export type ComponentSpec =
     | BaseComponent;
 
 export interface ConditionSpec {
-    field: string; // data model, p.e. "user.email"
-    comparator: string; // "is_not_empty", etc.
+    field: string;
+    comparator: string;
     value?: unknown;
 }
 
 export interface RuleStepValidateFields {
     type: "validate_fields";
-    fields: string[]; // data models
+    fields: string[];
     show_errors?: boolean;
     stop_on_error?: boolean;
 }
@@ -113,7 +109,7 @@ export interface RuleSpec {
     id: string;
     scope?: "screen" | "global";
     screen_id?: string;
-    on_event: string; // p.e. "btn_sign_in.click"
+    on_event: string;
     when?: ConditionSpec[];
     steps: RuleStep[];
 }
