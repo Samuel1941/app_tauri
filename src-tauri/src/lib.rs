@@ -248,6 +248,7 @@ fn greet(name: &str) -> String {
     format!("Hello, {}!", name)
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let lua_state = LuaAppState::new();
 
