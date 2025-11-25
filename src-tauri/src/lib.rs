@@ -124,7 +124,8 @@ impl LuaAppState {
             .parent()
             .unwrap_or_else(|| Path::new(".."))
             .join("src")
-            .join("meta.json");
+            .join("version_v1.0.10")
+            .join("bundle.json");
 
         match std::fs::read_to_string(&meta_path) {
             Ok(meta_str) => match serde_json::from_str::<JsonValue>(&meta_str) {
@@ -135,19 +136,19 @@ impl LuaAppState {
                         }
                     }
                     Err(e) => {
-                        eprintln!("Error convirtiendo meta.json a Lua: {e}");
+                        eprintln!("Error convirtiendo bundle.json a Lua: {e}");
                     }
                 },
                 Err(e) => {
                     eprintln!(
-                        "Error parseando meta.json ({}): {e}",
+                        "Error parseando bundle.json ({}): {e}",
                         meta_path.to_string_lossy()
                     );
                 }
             },
             Err(e) => {
                 eprintln!(
-                    "No se pudo leer meta.json en {}: {e}",
+                    "No se pudo leer bundle.json en {}: {e}",
                     meta_path.to_string_lossy()
                 );
             }

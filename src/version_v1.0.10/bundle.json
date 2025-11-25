@@ -1,0 +1,131 @@
+{
+  "meta": {
+    "dsl_version": "1.0.10",
+    "bundle_version": "1.0.0",
+    "min_engine_version": "1.0.0",
+    "app_name": "POS Demo",
+    "environment": "prod"
+  },
+  "theme": {
+    "id": "default",
+    "tokens": {}
+  },
+  "device_profiles": [
+    {
+      "id": "topwase_t6",
+      "description": "Topwase T6 payment terminal",
+      "capabilities": {
+        "platform": {
+          "os": "android",
+          "form_factor": "terminal"
+        },
+        "screen": {
+          "width": 480,
+          "height": 800,
+          "density": "hdpi",
+          "preferred_orientation": "portrait",
+          "has_second_screen": false
+        },
+        "printer": {
+          "has_printer": true,
+          "type": "thermal",
+          "paper_width_mm": 58,
+          "supports_qr": true,
+          "supports_images": true
+        },
+        "card_payment": {
+          "supports_magnetic": true,
+          "supports_chip": true,
+          "supports_contactless": true,
+          "integrated_pinpad": true,
+          "requires_pin_on_device": true,
+          "requires_screen_signature": false
+        }
+      },
+      "commerce": {
+        "enabled_operations": [
+          "sale",
+          "tip_sale",
+          "refund"
+        ]
+      }
+    }
+  ],
+  "operations_catalog": {},
+  "operational_rules": {
+    "printing": {
+      "retries": 2,
+      "on_no_paper_action": "show_qr"
+    },
+    "connectivity": {
+      "offline_mode": true,
+      "send_retries": 3,
+      "retry_interval_ms": 5000
+    },
+    "access": {
+      "login_screen": "login",
+      "unauthorized_screen": null
+    }
+  },
+  "screens": [
+    {
+      "id": "login",
+      "title": "Login",
+      "description": "User login screen",
+      "targets": [
+        "topwase_t6"
+      ],
+      "layout": {
+        "type": "vertical",
+        "padding": "md",
+        "horizontal_alignment": "center"
+      },
+      "access_control": {
+        "requires_authentication": false,
+        "allowed_roles": [],
+        "denied_roles": [],
+        "required_permissions": []
+      },
+      "lifecycle_events": {
+        "on_enter": [],
+        "on_leave": [],
+        "on_resume": []
+      },
+      "data_sources": [],
+      "components": [
+        {
+          "id": "app_logo",
+          "type": "image",
+          "file": "images_base64/app_logo.b64.txt",
+          "fit_mode": "contain",
+          "size": "md",
+          "visible_by_default": null,
+          "enabled_by_default": null,
+          "accessibility": null
+        },
+        {
+          "id": "app_header",
+          "type": "image",
+          "file": "images_base64/app_header.b64.txt",
+          "fit_mode": "contain",
+          "size": "md",
+          "visible_by_default": null,
+          "enabled_by_default": null,
+          "accessibility": null
+        },
+        {
+          "id": "app_pc",
+          "type": "image",
+          "file": "images_base64/app_pc.b64.txt",
+          "fit_mode": "contain",
+          "size": "md",
+          "visible_by_default": null,
+          "enabled_by_default": null,
+          "accessibility": null
+        }
+      ]
+    }
+  ],
+  "rules": [],
+  "transitions": []
+}

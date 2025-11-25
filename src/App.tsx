@@ -1,7 +1,7 @@
 // src/App.tsx
 import { useMemo, useState, CSSProperties } from "react";
 import "./App.css";
-import rawMeta from "./meta.json";
+import rawMeta from "./version_v1.0.10/bundle.json";
 import {
   ButtonComponent,
   ComponentSpec,
@@ -20,7 +20,7 @@ import {
 type ValuesMap = Record<string, string>;
 type ErrorsMap = Record<string, string>;
 
-const meta = rawMeta as MetalanguageRoot;
+const meta = rawMeta as unknown as MetalanguageRoot;
 const screens: ScreenSpec[] = meta.screens;
 const transitions: Transition[] = meta.transitions;
 const rules: RuleSpec[] = meta.rules;
@@ -35,6 +35,14 @@ function findScreen(screenId: string): ScreenSpec {
   }
   return screen;
 }
+
+const imageBase64Modules = import.meta.glob(
+  "./version_v1.0.10/images_base64/*.b64.txt",
+  {
+    as: "raw",
+    eager: true,
+  }
+) as Record<string, string>;
 
 function validateField(
   component: TextFieldComponent,
@@ -135,9 +143,31 @@ function interpolateText(template: string, values: ValuesMap): string {
 }
 
 function getImageSrc(img: ImageComponent): string {
-  if (!img.file) return "";
-  if (img.file.startsWith("data:")) return img.file;
-  return `data:image/png;base64,${img.file}`;
+  const file = img.file;
+  if (!file) return "";
+
+  if (file.startsWith("data:")) {
+    return file;
+  }
+
+  if (file.endsWith(".b64.txt")) {
+    const candidates = [
+      `./version_v1.0.10/${file}`,
+      `./version_v1.0.10/images_base64/${file}`,
+    ];
+
+    for (const key of candidates) {
+      const content = imageBase64Modules[key];
+      if (content) {
+        return `data:image/png;base64,${content.trim()}`;
+      }
+    }
+
+    console.warn("[getImageSrc] No se encontró el archivo base64 para", file);
+    return "";
+  }
+
+  return `data:image/png;base64,${file}`;
 }
 
 function App() {
